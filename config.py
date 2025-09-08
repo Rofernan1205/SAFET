@@ -1,0 +1,1 @@
+# Configuración general (DB, rutas, constantes)
