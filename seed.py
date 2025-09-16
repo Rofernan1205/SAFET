@@ -76,10 +76,35 @@ def seed_sucursal():
         session.commit()
         print("Seed de sucursales completado ")
 
+# Categorias
+
+# seed_categorias.py
+from models.models import CategoriaProducto
+def seed_categoria():
+    with SessionLocal() as session:
+        categorias = [
+            ("Alimentos", "Productos de consumo alimenticio"),
+            ("Bebidas", "Gaseosas, jugos y bebidas alcohólicas"),
+            ("Limpieza", "Artículos de limpieza y aseo"),
+            ("Higiene", "Productos de higiene personal"),
+        ]
+
+        for nombre, descripcion in categorias:
+            existe = session.query(CategoriaProducto).filter_by(nombre=nombre).first()
+            if not existe:
+                nueva = CategoriaProducto(nombre=nombre, descripcion=descripcion)
+                session.add(nueva)
+            else:
+                print(f"La categoria {nombre} ya existe")
+
+        session.commit()
+        print("Seed de categorías completado")
+
 
 
 if __name__ == "__main__":
     # seed_roles()
     # seed_formas_pago()
-    seed_sucursal()
+    # seed_sucursal()
+    seed_categoria()
 
