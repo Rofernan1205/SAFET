@@ -29,11 +29,11 @@ def seed_formas_pago():
     with SessionLocal() as session:
         # lista de formas de pago iniciales
         formas = [
-            (TipoPagoEnum.EFECTIVO, Decimal("0.00")),       # sin cargo
-            (TipoPagoEnum.TARJETA, Decimal("2.50")),        # 2.5% extra
-            (TipoPagoEnum.TRANSFERENCIA, Decimal("0.00")),  # sin cargo
-            (TipoPagoEnum.YAPE, Decimal("0.00")),           # sin cargo
-            (TipoPagoEnum.PLIN, Decimal("0.00")),           # sin cargo
+            (TipoPagoEnum.EFECTIVO.value, Decimal("0.00")),       # sin cargo
+            (TipoPagoEnum.TARJETA.value, Decimal("5")),        # 2.5% extra
+            (TipoPagoEnum.TRANSFERENCIA.value, Decimal("0.00")),  # sin cargo
+            (TipoPagoEnum.YAPE.value, Decimal("0.00")),           # sin cargo
+            (TipoPagoEnum.PLIN.value, Decimal("0.00")),           # sin cargo
         ]
 
         for tipo, cargo in formas:
@@ -42,22 +42,44 @@ def seed_formas_pago():
             if not existe:
                 nuevo_forma= (FormaPago(tipo=tipo, cargo_extra=cargo))
                 session.add(nuevo_forma)
+                print(f"{tipo} agregado")
+            else:
+                print(f"El metodo {tipo} ya existe")
 
         session.commit()
-        print("Seed de formas de pago completado ✅")
+        print("Seed de formas de pago completado")
+
+
+# Sucursales
+from models.models import Sucursal
+
+
+def seed_sucursal():
+    with SessionLocal() as session:
+        sucursales = [
+            ("CP huarapari", "971671606", "Plaza principal")
+        ]
+
+        for nombre, telefono, direccion in sucursales:
+            existe = session.query(Sucursal).filter_by(nombre=nombre).first()
+            if not existe:
+                nueva = Sucursal(
+                    nombre=nombre,
+                    telefono=telefono,
+                    direccion=direccion
+                )
+                session.add(nueva)
+                print(f"{nombre} agregado")
+            else:
+                print(f"La sede {nombre} ya existe")
+
+        session.commit()
+        print("Seed de sucursales completado ")
+
+
 
 if __name__ == "__main__":
-    seed_formas_pago()
-
-
-
-
-
-
-
-
-
-if __name__ == "__main__":
-    seed_roles()
-    seed_formas_pago()
+    # seed_roles()
+    # seed_formas_pago()
+    seed_sucursal()
 
