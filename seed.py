@@ -100,11 +100,33 @@ def seed_categoria():
         session.commit()
         print("Seed de categorías completado")
 
+# Usuario
+from models.models import  Usuario
+from utils.security import hash_password
+
+def seed_usuario():
+    with SessionLocal() as session:
+        existe = session.query(Usuario).filter_by(usuario="rofernan").first()
+        if not existe:
+            nuevo_usuario = Usuario(nombre="Rodrigo Fernandez",
+                                    usuario="rofernan",
+                                    password=hash_password("prueba123"),
+                                    telefono="928600056",
+                                    correo="example@gmail.com",
+                                    sucursal_id=session.get(Sucursal,1).id if session.get(Sucursal,1) else None,
+                                    rol_id=session.get(Rol,1).id if session.get(Rol,2) else None)
+            session.add(nuevo_usuario)
+            print(f"{nuevo_usuario.usuario} agregado")
+        else:
+            print("El usuario ya existe")
+        session.commit()
 
 
-if __name__ == "__main__":
-    # seed_roles()
-    # seed_formas_pago()
-    # seed_sucursal()
+
+if __name__ == '__main__':
+    seed_roles()
+    seed_sucursal()
     seed_categoria()
+    seed_formas_pago()
+    seed_usuario()
 

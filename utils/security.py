@@ -13,11 +13,3 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_ctx.verify(plain, hashed)
 
 
-# Prueba de funcionamiento
-
-my_password = "prueba123"
-
-password_hash = hash_password(my_password)
-
-salida = verify_password("prueba123", password_hash)
-print(salida)
