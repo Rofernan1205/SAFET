@@ -1,11 +1,8 @@
 # Repositorio de Roles CRUD
-# importar modelo Rol
+
 from models.models import Rol
-# importar session de la DB
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-
-
 
 
 class RolRepositorio:
@@ -13,36 +10,30 @@ class RolRepositorio:
         self.sesion = sesion
 
     # Listar todos los roles
-    def listar_roles(self) -> list[Rol] | []: # Significa: “una lista cuyos elementos son instancias de la clase Rol”.
-        roles = self.sesion.query(Rol).all()
-        return roles if roles  else []
+    def listar_roles(self) -> list[Rol]:
+        return self.sesion.query(Rol).all()
 
-    # Buscar roles por id
-    def buscar_id(self, rol_id) -> Rol | None :
-        rol =self.sesion.query(Rol).filter_by(id=rol_id).first()
-        return rol if rol else None
+    # Buscar rol por ID
+    def buscar_id(self, rol_id: int) -> Rol | None:
+        return self.sesion.query(Rol).filter_by(id=rol_id).first()
 
-    # Buscar roles por nombre
-    def buscar_nombre(self, rol_nombre) -> Rol | None :
-        rol = self.sesion.query(Rol).filter_by(nombre=rol_nombre).first()
-        return rol if rol else None
+    # Buscar rol por nombre
+    def buscar_nombre(self, rol_nombre: str) -> Rol | None:
+        return self.sesion.query(Rol).filter_by(nombre=rol_nombre).first()
 
     # Crear rol
     def crear_rol(self, rol: Rol) -> Rol:
         try:
             self.sesion.add(rol)
             self.sesion.commit()
-            self.sesion.refresh(rol)  # Obtiene el ID generado por la BD
+            self.sesion.refresh(rol)  # Para obtener ID autogenerado
             return rol
         except IntegrityError:
             self.sesion.rollback()
             raise ValueError("El rol con este nombre ya existe.")
 
-
-
     # Actualizar rol
     def actualizar_rol(self, rol: Rol) -> Rol:
-
         try:
             self.sesion.commit()
             self.sesion.refresh(rol)
@@ -52,7 +43,7 @@ class RolRepositorio:
             raise ValueError("No se puede actualizar el rol debido a un conflicto de datos.")
 
     # Eliminar rol
-    def delete(self, rol: Rol) -> bool:
+    def eliminar_rol(self, rol: Rol) -> bool:
         try:
             self.sesion.delete(rol)
             self.sesion.commit()
@@ -60,21 +51,3 @@ class RolRepositorio:
         except Exception:
             self.sesion.rollback()
             return False
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

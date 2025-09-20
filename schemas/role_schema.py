@@ -13,7 +13,7 @@ class RolSalida(BaseModel):
     id:int
     nombre:str
 
-    class config:
+    class Config:
         from_attributes = True # se encarga de serializar
 
 
