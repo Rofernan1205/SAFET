@@ -1,10 +1,10 @@
 # ========================================================
-# MODELOS SAFETDB - versión profesional
+# MODELOS SAFETDB - versión final
 # ========================================================
 
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, DateTime, Numeric, Text,
-    CheckConstraint, func, Boolean, Date, Enum, Index
+    CheckConstraint, func, Boolean, Date, Enum, Index, PrimaryKeyConstraint
 )
 from sqlalchemy.orm import relationship, declarative_mixin
 import enum
@@ -18,6 +18,8 @@ class EstadoVentaEnum(enum.Enum):
     PENDIENTE = "Pendiente"
     COMPLETADA = "Completada"
     ANULADA = "Anulada"
+    CREDITO = "Crédito"
+    APARTADA = "Apartada"
 
 
 class TipoFacturaEnum(enum.Enum):
@@ -96,6 +98,7 @@ class Sucursal(Base, TimestampMixin, SoftDeleteMixin):
     productos = relationship("Producto", back_populates="sucursal")
     ventas = relationship("Venta", back_populates="sucursal")
     compras = relationship("Compra", back_populates="sucursal")
+    cajas = relationship("Caja", back_populates="sucursal")
 
 
 # ========================================================
@@ -172,6 +175,11 @@ class Usuario(Base, TimestampMixin, SoftDeleteMixin):
     movimientos = relationship("MovimientoInventario", back_populates="usuario")
     ajustes = relationship("AjusteInventario", back_populates="usuario")
 
+    # ----- RELACIONES CORREGIDAS -----
+    cajas_abiertas = relationship("Caja", foreign_keys="Caja.usuario_apertura_id", back_populates="usuario_apertura")
+    cajas_cerradas = relationship("Caja", foreign_keys="Caja.usuario_cierre_id", back_populates="usuario_cierre")
+
+
 
 # ========================================================
 # 8. Productos
@@ -205,6 +213,7 @@ class Producto(Base, TimestampMixin, SoftDeleteMixin):
     detalle_compras = relationship("DetalleCompra", back_populates="producto")
     movimientos = relationship("MovimientoInventario", back_populates="producto")
     ajustes = relationship("AjusteInventario", back_populates="producto")
+    impuestos = relationship("ImpuestoProducto", back_populates="producto")
 
 
 # ========================================================
@@ -217,18 +226,22 @@ class Venta(Base, TimestampMixin):
     fecha = Column(DateTime, default=func.now(), index=True)
     estado = Column(Enum(EstadoVentaEnum), default=EstadoVentaEnum.COMPLETADA, nullable=False)
     total = Column(Numeric(10, 2), nullable=False)
+    total_pagado = Column(Numeric(10, 2), default=0, nullable=False)
 
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
     cliente_id = Column(Integer, ForeignKey("clientes.id"))
     forma_pago_id = Column(Integer, ForeignKey("formas_pago.id"))
     sucursal_id = Column(Integer, ForeignKey("sucursales.id"))
+    caja_id = Column(Integer, ForeignKey("cajas.id"))
 
     forma_pago = relationship("FormaPago", back_populates="ventas")
     cliente = relationship("Cliente", back_populates="ventas")
     sucursal = relationship("Sucursal", back_populates="ventas")
     usuario = relationship("Usuario", back_populates="ventas")
+    caja = relationship("Caja", back_populates="ventas")
     detalles = relationship("DetalleVenta", back_populates="venta", cascade="all, delete-orphan")
     factura = relationship("Factura", back_populates="venta", uselist=False)
+    pagos = relationship("Pago", back_populates="venta", cascade="all, delete-orphan")
 
 
 # ========================================================
@@ -241,6 +254,7 @@ class DetalleVenta(Base):
     cantidad = Column(Integer, nullable=False)
     precio_unitario = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
+    margen_ganancia = Column(Numeric(12, 2))
 
     venta_id = Column(Integer, ForeignKey("ventas.id", ondelete="CASCADE"))
     producto_id = Column(Integer, ForeignKey("productos.id"))
@@ -251,6 +265,7 @@ class DetalleVenta(Base):
 
     venta = relationship("Venta", back_populates="detalles")
     producto = relationship("Producto", back_populates="detalle_ventas")
+    impuestos_detalle = relationship("DetalleImpuestoVenta", back_populates="detalle_venta", cascade="all, delete-orphan")
 
 
 # ========================================================
@@ -309,6 +324,8 @@ class MovimientoInventario(Base, TimestampMixin):
 
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
     producto_id = Column(Integer, ForeignKey("productos.id"))
+    venta_id = Column(Integer, ForeignKey("ventas.id"))
+    compra_id = Column(Integer, ForeignKey("compras.id"))
 
     __table_args__ = (
         CheckConstraint("cantidad > 0", name="check_cantidad_movimiento_positiva"),
@@ -316,6 +333,8 @@ class MovimientoInventario(Base, TimestampMixin):
 
     usuario = relationship("Usuario", back_populates="movimientos")
     producto = relationship("Producto", back_populates="movimientos")
+    venta = relationship("Venta")
+    compra = relationship("Compra")
 
 
 # ========================================================
@@ -353,5 +372,134 @@ class Factura(Base, TimestampMixin):
     fecha = Column(DateTime, default=func.now(), index=True)
 
     venta_id = Column(Integer, ForeignKey("ventas.id"), nullable=False)
+    tipo_comprobante_id = Column(Integer, ForeignKey("tipos_comprobantes.id"))
 
     venta = relationship("Venta", back_populates="factura", uselist=False)
+    tipo_comprobante = relationship("TipoComprobante", back_populates="facturas")
+
+
+
+
+# ========================================================
+# 16. Cajas
+# ========================================================
+class Caja(Base, TimestampMixin):
+    __tablename__ = "cajas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fecha_apertura = Column(DateTime, default=func.now(), nullable=False)
+    fecha_cierre = Column(DateTime)
+    fondo_inicial = Column(Numeric(10, 2), nullable=False)
+    ventas_en_efectivo = Column(Numeric(10, 2), default=0, nullable=False)
+    entradas_adicionales = Column(Numeric(10, 2), default=0, nullable=False)
+    salidas_adicionales = Column(Numeric(10, 2), default=0, nullable=False)
+    balance_final = Column(Numeric(10, 2))
+    estado = Column(String(50), default="Abierta", nullable=False)
+
+    usuario_apertura_id = Column(Integer, ForeignKey("usuarios.id"))
+    usuario_cierre_id = Column(Integer, ForeignKey("usuarios.id"))
+    sucursal_id = Column(Integer, ForeignKey("sucursales.id"))
+
+    # ----- RELACIONES CORREGIDAS -----
+    usuario_apertura = relationship("Usuario", foreign_keys="Caja.usuario_apertura_id", back_populates="cajas_abiertas")
+    usuario_cierre = relationship("Usuario", foreign_keys="Caja.usuario_cierre_id", back_populates="cajas_cerradas")
+    sucursal = relationship("Sucursal", back_populates="cajas")
+    ventas = relationship("Venta", back_populates="caja")
+    pagos = relationship("Pago", back_populates="caja")
+
+
+
+# ========================================================
+# 17. Parámetros de la Empresa
+# ========================================================
+class ParametrosEmpresa(Base):
+    __tablename__ = "parametros_empresa"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nombre_comercial = Column(String(200), nullable=False)
+    razon_social = Column(String(200))
+    ruc = Column(String(20), unique=True, nullable=False)
+    direccion_fiscal = Column(Text)
+    telefono = Column(String(20))
+    moneda_simbolo = Column(String(5), default="S/.")
+    impuesto_general_ventas = Column(Numeric(5, 2), default=18.0)
+
+
+# ========================================================
+# 18. Tipos de Comprobantes
+# ========================================================
+class TipoComprobante(Base, SoftDeleteMixin):
+    __tablename__ = "tipos_comprobantes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nombre = Column(String(50), nullable=False, unique=True)
+    serie = Column(String(10), nullable=False)
+    correlativo_actual = Column(Integer, default=0, nullable=False)
+
+    __table_args__ = (
+        Index("idx_serie_correlativo", "serie", "correlativo_actual"),
+    )
+
+    facturas = relationship("Factura", back_populates="tipo_comprobante")
+
+# ========================================================
+# 19. Impuestos
+# ========================================================
+class Impuesto(Base):
+    __tablename__ = "impuestos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nombre = Column(String(100), unique=True, nullable=False)
+    porcentaje = Column(Numeric(5, 2), nullable=False)
+
+    productos_relacion = relationship("ImpuestoProducto", back_populates="impuesto", cascade="all, delete-orphan")
+    detalles_venta = relationship("DetalleImpuestoVenta", back_populates="impuesto", cascade="all, delete-orphan")
+
+# ========================================================
+# 20. Relación Producto-Impuesto
+# ========================================================
+class ImpuestoProducto(Base):
+    __tablename__ = "impuestos_productos"
+    __table_args__ = (
+        PrimaryKeyConstraint('producto_id', 'impuesto_id'),
+    )
+
+    producto_id = Column(Integer, ForeignKey("productos.id", ondelete="CASCADE"))
+    impuesto_id = Column(Integer, ForeignKey("impuestos.id", ondelete="CASCADE"))
+
+    producto = relationship("Producto", back_populates="impuestos")
+    impuesto = relationship("Impuesto", back_populates="productos_relacion")
+
+# ========================================================
+# 21. Detalle de Impuestos en Venta
+# ========================================================
+class DetalleImpuestoVenta(Base):
+    __tablename__ = "detalle_impuestos_venta"
+    __table_args__ = (
+        PrimaryKeyConstraint('detalle_venta_id', 'impuesto_id'),
+    )
+
+    detalle_venta_id = Column(Integer, ForeignKey("detalle_ventas.id", ondelete="CASCADE"))
+    impuesto_id = Column(Integer, ForeignKey("impuestos.id", ondelete="CASCADE"))
+    monto_impuesto = Column(Numeric(10, 2), nullable=False)
+
+    detalle_venta = relationship("DetalleVenta", back_populates="impuestos_detalle")
+    impuesto = relationship("Impuesto", back_populates="detalles_venta")
+
+
+# ========================================================
+# 22. Pagos
+# ========================================================
+class Pago(Base, TimestampMixin):
+    __tablename__ = "pagos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    monto_pagado = Column(Numeric(10, 2), nullable=False)
+    fecha_pago = Column(DateTime, default=func.now(), nullable=False)
+    tipo_pago = Column(Enum(TipoPagoEnum), nullable=False)
+
+    venta_id = Column(Integer, ForeignKey("ventas.id"))
+    caja_id = Column(Integer, ForeignKey("cajas.id"))
+
+    venta = relationship("Venta", back_populates="pagos")
+    caja = relationship("Caja", back_populates="pagos")

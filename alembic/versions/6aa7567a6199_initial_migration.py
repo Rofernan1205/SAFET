@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 64a12fe66c3f
+Revision ID: 6aa7567a6199
 Revises: 
-Create Date: 2025-09-15 15:54:57.055261
+Create Date: 2025-09-25 00:36:43.710230
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '64a12fe66c3f'
+revision: str = '6aa7567a6199'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -64,6 +64,25 @@ def upgrade() -> None:
     with op.batch_alter_table('formas_pago', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_formas_pago_tipo'), ['tipo'], unique=True)
 
+    op.create_table('impuestos',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('nombre', sa.String(length=100), nullable=False),
+    sa.Column('porcentaje', sa.Numeric(precision=5, scale=2), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('nombre')
+    )
+    op.create_table('parametros_empresa',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('nombre_comercial', sa.String(length=200), nullable=False),
+    sa.Column('razon_social', sa.String(length=200), nullable=True),
+    sa.Column('ruc', sa.String(length=20), nullable=False),
+    sa.Column('direccion_fiscal', sa.Text(), nullable=True),
+    sa.Column('telefono', sa.String(length=20), nullable=True),
+    sa.Column('moneda_simbolo', sa.String(length=5), nullable=True),
+    sa.Column('impuesto_general_ventas', sa.Numeric(precision=5, scale=2), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('ruc')
+    )
     op.create_table('proveedores',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('nombre', sa.String(length=100), nullable=False),
@@ -103,6 +122,18 @@ def upgrade() -> None:
     )
     with op.batch_alter_table('sucursales', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_sucursales_nombre'), ['nombre'], unique=True)
+
+    op.create_table('tipos_comprobantes',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('nombre', sa.String(length=50), nullable=False),
+    sa.Column('serie', sa.String(length=10), nullable=False),
+    sa.Column('correlativo_actual', sa.Integer(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('nombre')
+    )
+    with op.batch_alter_table('tipos_comprobantes', schema=None) as batch_op:
+        batch_op.create_index('idx_serie_correlativo', ['serie', 'correlativo_actual'], unique=False)
 
     op.create_table('productos',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -166,6 +197,26 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['usuario_id'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('cajas',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('fecha_apertura', sa.DateTime(), nullable=False),
+    sa.Column('fecha_cierre', sa.DateTime(), nullable=True),
+    sa.Column('fondo_inicial', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('ventas_en_efectivo', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('entradas_adicionales', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('salidas_adicionales', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('balance_final', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('estado', sa.String(length=50), nullable=False),
+    sa.Column('usuario_apertura_id', sa.Integer(), nullable=True),
+    sa.Column('usuario_cierre_id', sa.Integer(), nullable=True),
+    sa.Column('sucursal_id', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['sucursal_id'], ['sucursales.id'], ),
+    sa.ForeignKeyConstraint(['usuario_apertura_id'], ['usuarios.id'], ),
+    sa.ForeignKeyConstraint(['usuario_cierre_id'], ['usuarios.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('compras',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('fecha', sa.DateTime(), nullable=True),
@@ -183,44 +234,13 @@ def upgrade() -> None:
     with op.batch_alter_table('compras', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_compras_fecha'), ['fecha'], unique=False)
 
-    op.create_table('movimientos_inventario',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('tipo', sa.Enum('ENTRADA', 'SALIDA', name='tipomovimientoenum'), nullable=False),
-    sa.Column('cantidad', sa.Integer(), nullable=False),
-    sa.Column('referencia', sa.String(length=200), nullable=True),
-    sa.Column('fecha', sa.DateTime(), nullable=True),
-    sa.Column('usuario_id', sa.Integer(), nullable=True),
-    sa.Column('producto_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.CheckConstraint('cantidad > 0', name='check_cantidad_movimiento_positiva'),
-    sa.ForeignKeyConstraint(['producto_id'], ['productos.id'], ),
-    sa.ForeignKeyConstraint(['usuario_id'], ['usuarios.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    op.create_table('impuestos_productos',
+    sa.Column('producto_id', sa.Integer(), nullable=False),
+    sa.Column('impuesto_id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['impuesto_id'], ['impuestos.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['producto_id'], ['productos.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('producto_id', 'impuesto_id')
     )
-    with op.batch_alter_table('movimientos_inventario', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_movimientos_inventario_fecha'), ['fecha'], unique=False)
-
-    op.create_table('ventas',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('fecha', sa.DateTime(), nullable=True),
-    sa.Column('estado', sa.Enum('PENDIENTE', 'COMPLETADA', 'ANULADA', name='estadoventaenum'), nullable=False),
-    sa.Column('total', sa.Numeric(precision=10, scale=2), nullable=False),
-    sa.Column('usuario_id', sa.Integer(), nullable=True),
-    sa.Column('cliente_id', sa.Integer(), nullable=True),
-    sa.Column('forma_pago_id', sa.Integer(), nullable=True),
-    sa.Column('sucursal_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['cliente_id'], ['clientes.id'], ),
-    sa.ForeignKeyConstraint(['forma_pago_id'], ['formas_pago.id'], ),
-    sa.ForeignKeyConstraint(['sucursal_id'], ['sucursales.id'], ),
-    sa.ForeignKeyConstraint(['usuario_id'], ['usuarios.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('ventas', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_ventas_fecha'), ['fecha'], unique=False)
-
     op.create_table('detalle_compras',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('cantidad', sa.Integer(), nullable=False),
@@ -233,11 +253,35 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['producto_id'], ['productos.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('ventas',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('fecha', sa.DateTime(), nullable=True),
+    sa.Column('estado', sa.Enum('PENDIENTE', 'COMPLETADA', 'ANULADA', 'CREDITO', 'APARTADA', name='estadoventaenum'), nullable=False),
+    sa.Column('total', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('total_pagado', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('usuario_id', sa.Integer(), nullable=True),
+    sa.Column('cliente_id', sa.Integer(), nullable=True),
+    sa.Column('forma_pago_id', sa.Integer(), nullable=True),
+    sa.Column('sucursal_id', sa.Integer(), nullable=True),
+    sa.Column('caja_id', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['caja_id'], ['cajas.id'], ),
+    sa.ForeignKeyConstraint(['cliente_id'], ['clientes.id'], ),
+    sa.ForeignKeyConstraint(['forma_pago_id'], ['formas_pago.id'], ),
+    sa.ForeignKeyConstraint(['sucursal_id'], ['sucursales.id'], ),
+    sa.ForeignKeyConstraint(['usuario_id'], ['usuarios.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('ventas', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_ventas_fecha'), ['fecha'], unique=False)
+
     op.create_table('detalle_ventas',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('cantidad', sa.Integer(), nullable=False),
     sa.Column('precio_unitario', sa.Numeric(precision=10, scale=2), nullable=False),
     sa.Column('subtotal', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('margen_ganancia', sa.Numeric(precision=12, scale=2), nullable=True),
     sa.Column('venta_id', sa.Integer(), nullable=True),
     sa.Column('producto_id', sa.Integer(), nullable=True),
     sa.CheckConstraint('cantidad > 0', name='check_cantidad_venta_positiva'),
@@ -251,8 +295,10 @@ def upgrade() -> None:
     sa.Column('tipo', sa.Enum('BOLETA', 'FACTURA', 'TICKET', name='tipofacturaenum'), nullable=False),
     sa.Column('fecha', sa.DateTime(), nullable=True),
     sa.Column('venta_id', sa.Integer(), nullable=False),
+    sa.Column('tipo_comprobante_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['tipo_comprobante_id'], ['tipos_comprobantes.id'], ),
     sa.ForeignKeyConstraint(['venta_id'], ['ventas.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -260,31 +306,78 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_facturas_fecha'), ['fecha'], unique=False)
         batch_op.create_index(batch_op.f('ix_facturas_numero_factura'), ['numero_factura'], unique=True)
 
+    op.create_table('movimientos_inventario',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('tipo', sa.Enum('ENTRADA', 'SALIDA', name='tipomovimientoenum'), nullable=False),
+    sa.Column('cantidad', sa.Integer(), nullable=False),
+    sa.Column('referencia', sa.String(length=200), nullable=True),
+    sa.Column('fecha', sa.DateTime(), nullable=True),
+    sa.Column('usuario_id', sa.Integer(), nullable=True),
+    sa.Column('producto_id', sa.Integer(), nullable=True),
+    sa.Column('venta_id', sa.Integer(), nullable=True),
+    sa.Column('compra_id', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.CheckConstraint('cantidad > 0', name='check_cantidad_movimiento_positiva'),
+    sa.ForeignKeyConstraint(['compra_id'], ['compras.id'], ),
+    sa.ForeignKeyConstraint(['producto_id'], ['productos.id'], ),
+    sa.ForeignKeyConstraint(['usuario_id'], ['usuarios.id'], ),
+    sa.ForeignKeyConstraint(['venta_id'], ['ventas.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('movimientos_inventario', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_movimientos_inventario_fecha'), ['fecha'], unique=False)
+
+    op.create_table('pagos',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('monto_pagado', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('fecha_pago', sa.DateTime(), nullable=False),
+    sa.Column('tipo_pago', sa.Enum('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'YAPE', 'PLIN', name='tipopagoenum'), nullable=False),
+    sa.Column('venta_id', sa.Integer(), nullable=True),
+    sa.Column('caja_id', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['caja_id'], ['cajas.id'], ),
+    sa.ForeignKeyConstraint(['venta_id'], ['ventas.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('detalle_impuestos_venta',
+    sa.Column('detalle_venta_id', sa.Integer(), nullable=False),
+    sa.Column('impuesto_id', sa.Integer(), nullable=False),
+    sa.Column('monto_impuesto', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.ForeignKeyConstraint(['detalle_venta_id'], ['detalle_ventas.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['impuesto_id'], ['impuestos.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('detalle_venta_id', 'impuesto_id')
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('detalle_impuestos_venta')
+    op.drop_table('pagos')
+    with op.batch_alter_table('movimientos_inventario', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_movimientos_inventario_fecha'))
+
+    op.drop_table('movimientos_inventario')
     with op.batch_alter_table('facturas', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_facturas_numero_factura'))
         batch_op.drop_index(batch_op.f('ix_facturas_fecha'))
 
     op.drop_table('facturas')
     op.drop_table('detalle_ventas')
-    op.drop_table('detalle_compras')
     with op.batch_alter_table('ventas', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_ventas_fecha'))
 
     op.drop_table('ventas')
-    with op.batch_alter_table('movimientos_inventario', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_movimientos_inventario_fecha'))
-
-    op.drop_table('movimientos_inventario')
+    op.drop_table('detalle_compras')
+    op.drop_table('impuestos_productos')
     with op.batch_alter_table('compras', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_compras_fecha'))
 
     op.drop_table('compras')
+    op.drop_table('cajas')
     op.drop_table('ajustes_inventario')
     with op.batch_alter_table('usuarios', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_usuarios_usuario'))
@@ -294,6 +387,10 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_productos_nombre'))
 
     op.drop_table('productos')
+    with op.batch_alter_table('tipos_comprobantes', schema=None) as batch_op:
+        batch_op.drop_index('idx_serie_correlativo')
+
+    op.drop_table('tipos_comprobantes')
     with op.batch_alter_table('sucursales', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_sucursales_nombre'))
 
@@ -306,6 +403,8 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_proveedores_nombre'))
 
     op.drop_table('proveedores')
+    op.drop_table('parametros_empresa')
+    op.drop_table('impuestos')
     with op.batch_alter_table('formas_pago', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_formas_pago_tipo'))
 
