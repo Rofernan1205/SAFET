@@ -172,7 +172,7 @@ class DashboardApp(QMainWindow):
         self.almacen_submenu_container = QFrame()
         # Inicialmente cerrado
         self.almacen_submenu_container.setMaximumHeight(0)
-        self.almacen_submenu_container.setStyleSheet("background-color: #3e5a75; border-left: 5px solid #3498db;")
+        self.almacen_submenu_container.setStyleSheet("background-color: #3e5a75; border-left: 5px solid red;")
         submenu_layout = QVBoxLayout(self.almacen_submenu_container)
         submenu_layout.setContentsMargins(0, 0, 0, 0)
         submenu_layout.setSpacing(0)

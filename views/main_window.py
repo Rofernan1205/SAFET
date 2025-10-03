@@ -23,10 +23,18 @@ class DashboardApp(BaseWindow):
         self.setCentralWidget(main_widget)
         self.setStyleSheet(GRADIENT_GLOBAL)
 
-        # 1. Variables de Estado collapse
+        # 1. Variables de Estado collapse menu
         self.is_expanded = False
         self.width_collapsed = 50
         self.width_expanded = 250
+
+        # 2. Variables de estado de collapse submenu
+        self.is_expanded_sub = False
+        self.height_collapsed = 0
+        self.height_expanded = 100
+
+
+
 
         # Layout Principal: Horizontal (Sidebar | Contenido)
         self.main_h_layout = QVBoxLayout(main_widget)
@@ -123,18 +131,21 @@ class DashboardApp(BaseWindow):
         content_layout = QVBoxLayout(self.content_nav)
         content_layout.setContentsMargins(0,0,0,0)
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        content_layout.setSpacing(3)
+        content_layout.setSpacing(0)
 
 
-        btn_home = QPushButton("Inicio 🏠")
-        btn_home.setObjectName("btn_home_1")
-        btn_home.setProperty("full_text", "Inicio 🏠")  # Guarda el texto completo para referencia
-        btn_home.setProperty("nav_index", 1)  # Guarda el índice de la página
-        btn_home.setProperty("is_parent", True)
-        btn_home.setFixedHeight(45)
-        btn_home.setFont(QFont("Roboto", 12))
-        btn_home.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_home.setStyleSheet(
+
+        self.btn_home = QPushButton("🏠 Inicio ")
+        self.btn_home.setObjectName("btn_home_1")
+        self.btn_home.setProperty("full_text", "🏠 Inicio")  # Guarda el texto completo para referencia
+        self.btn_home.setProperty("nav_index", -1)  # Guarda el índice de la página
+        self.btn_home.setProperty("is_parent", True)
+        self.btn_home.setFixedHeight(40)
+        self.btn_home.setFont(QFont("Roboto", 14))
+        self.btn_home.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_home.clicked.connect(self.toggle_submenu)
+
+        self.btn_home.setStyleSheet(
             """
             QPushButton#btn_home_1 {
                 color: white; 
@@ -148,11 +159,28 @@ class DashboardApp(BaseWindow):
             }
              """
         )
-        content_layout.addWidget(btn_home)
+        content_layout.addWidget(self.btn_home)
 
+        # Area de submenu
+        self.submenu_container = QFrame()
+        # Inicialmente cerrado
+        self.submenu_container.setMaximumHeight(self.height_collapsed)
+        self.submenu_container.setStyleSheet("background-color: #3e5a75; border-left: 5px solid red;")
+        submenu_layout = QVBoxLayout(self.submenu_container)
+        submenu_layout.setContentsMargins(0, 0, 0, 0)
+        submenu_layout.setSpacing(0)
 
+        self.btn_sub_1 = QPushButton("Botton 1")
+        self.btn_sub_1.setFont(QFont("Roboto", 14))
+        self.btn_sub_1.setStyleSheet("color:white; background-color : green;padding: 5")
+        self.btn_sub_2 = QPushButton("Botton 2")
+        self.btn_sub_2.setFont(QFont("Roboto", 14))
+        self.btn_sub_2.setStyleSheet("color:white; background-color : blue; padding: 5")
+        submenu_layout.addWidget(self.btn_sub_1)
+        submenu_layout.addWidget(self.btn_sub_2)
 
-
+        salida = self.submenu_container.layout()
+        print(salida.count())
 
 
 
@@ -163,22 +191,25 @@ class DashboardApp(BaseWindow):
         content_view.setStyleSheet("background-color: transparent;")
 
 
-
-
-
-
-
         layout_content.addWidget(self.content_nav,0)
         layout_content.addWidget(content_view, 1)
 
         self.main_h_layout.addWidget(sidebar, 0)
         self.main_h_layout.addWidget(content, 1)
 
-        # >>> 2. AÑADIDO: CONFIGURACIÓN DEL ANIMADOR <<<
-        self.animation = QPropertyAnimation(self.content_nav, b"minimumWidth")
-        self.animation.setDuration(300)
-        self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.animation.finished.connect(self.update_state)
+        # >>> 1. ANIMACIÓN DE COLLPASE MENU
+        self.animation_menu = QPropertyAnimation(self.content_nav, b"minimumWidth")
+        self.animation_menu.setDuration(300)
+        self.animation_menu.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.animation_menu.finished.connect(self.update_state_menu)
+
+        # >>> 2 ANIMACIÓN DE COLLAPSE SUBMENU
+
+        self.animation_submenu = QPropertyAnimation(self.submenu_container,b"maximumHeight")
+        self.animation_menu.setDuration(300)
+        self.animation_submenu.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.animation_submenu.finished.connect(self.update_state_submenu)
+
 
 
 
@@ -195,18 +226,31 @@ class DashboardApp(BaseWindow):
             end_width = self.width_expanded
             self.toggle_btn.setText("←")  # Cambia el icono a "Flecha"
 
-        self.animation.setStartValue(start_width)
-        self.animation.setEndValue(end_width)
+        self.animation_menu.setStartValue(start_width)
+        self.animation_menu.setEndValue(end_width)
+        self.animation_menu.start()
 
-        self.animation.start()
 
-
-    def update_state(self):
-        # Invierte el estado SÓLO cuando la animación ha terminado
+    def update_state_menu(self):
         self.is_expanded = not self.is_expanded
 
-    def create_nav_button(self, param, param1, param2):
-        pass
+    def toggle_submenu(self):
+        if self.is_expanded_sub:
+            start_height = self.height_expanded
+            end_height = self.height_collapsed
+        else:
+            start_height = self.height_collapsed
+            end_height = self.height_expanded
+
+        self.animation_submenu.setStartValue(start_height)
+        self.animation_submenu.setEndValue(end_height)
+        self.animation_submenu.start()
+
+
+
+    def update_state_submenu(self):
+        self.is_expanded_sub = not self.is_expanded_sub
+
 
 
 if __name__ == "__main__":
