@@ -1,6 +1,5 @@
 import os
 import sys
-from views.utils_view.add_images import get_images_path
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QGridLayout,
@@ -11,7 +10,8 @@ from views.utils_view.view_position import center_on_screen
 from views.base_window import  BaseWindow
 from views.utils_style.styles import GRADIENT_GLOBAL
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
+
 
 # DashboardApp principal
 class DashboardApp(BaseWindow):
@@ -19,10 +19,14 @@ class DashboardApp(BaseWindow):
         super().__init__("SAFET - DashBoard")
 
 
-
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         self.setStyleSheet(GRADIENT_GLOBAL)
+
+        # 1. Variables de Estado collapse
+        self.is_expanded = False
+        self.width_collapsed = 50
+        self.width_expanded = 250
 
         # Layout Principal: Horizontal (Sidebar | Contenido)
         self.main_h_layout = QVBoxLayout(main_widget)
@@ -40,9 +44,11 @@ class DashboardApp(BaseWindow):
         # Logo
         box_logo = QFrame()
         box_logo.setStyleSheet("background-color: transparent;")
+        box_logo.setMaximumWidth( 250)
         word_logo = QLabel("SATEF")
         word_logo.setObjectName("word_logo")
         layout_logo = QHBoxLayout(box_logo)
+        layout_logo.setContentsMargins(10,0,0,0)
         word_logo.setStyleSheet("""
                 QLabel#word_logo {
                     color: white;
@@ -52,36 +58,57 @@ class DashboardApp(BaseWindow):
                 }
                 """)
 
-        layout_logo.setAlignment(Qt.AlignCenter)
-        layout_logo.addWidget(word_logo)
+        self.toggle_btn = QPushButton("☰")
+        self.toggle_btn.setObjectName("toggle_btn")
+        self.toggle_btn.setStyleSheet("""
+        QPushButton#toggle_btn {
+            color: white;
+            border: 1px solid white;
+            border-radius: 5px;
+            font-size: 15px;
+            background-color: transparent;
+        }
+        QPushButton#toggle_btn:hover {
+            background-color: #9198a1;
+        }
+        """)
+        self.toggle_btn.clicked.connect(self.toggle_panel)
+        self.toggle_btn.setFixedSize(30, 30)
+        self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        layout_logo.addWidget(word_logo,9)
+        layout_logo.addWidget(self.toggle_btn,1)
+
 
 
         # Titulo
         box_title = QFrame()
         box_title.setStyleSheet("background-color: transparent;")
         word_title = QLabel("Panel de control")
-        font_title = QFont("Roboto", 20, QFont.Bold)
+        font_title = QFont("Roboto", 20, QFont.Weight.Bold)
         word_title.setFont(font_title)
         layout_title = QHBoxLayout(box_title)
         word_title.setStyleSheet("color: white;")
-        layout_title.setAlignment(Qt.AlignCenter)
+        layout_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_title.addWidget(word_title)
 
         # Profile
         box_profile = QFrame()
         box_profile.setStyleSheet("background-color: transparent;")
         word_profile = QLabel("Admin: Rodrigo .F")
-        font_profile = QFont("Roboto", 16, QFont.Bold)
+        font_profile = QFont("Roboto", 16, QFont.Weight.Bold)
         word_profile.setFont(font_profile)
         layout_profile = QHBoxLayout(box_profile)
         word_profile.setStyleSheet("color: white;")
-        layout_profile.setAlignment(Qt.AlignCenter)
+        layout_profile.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_profile.addWidget(word_profile)
 
 
         layout_sidebar.addWidget(box_logo,2)
         layout_sidebar.addWidget(box_title,6)
         layout_sidebar.addWidget(box_profile, 2)
+
 
         # Content
         content = QFrame()
@@ -90,129 +117,39 @@ class DashboardApp(BaseWindow):
         layout_content.setContentsMargins(0,0,0,0)
         layout_content.setSpacing(0)
 
-        content_nav = QFrame()
-        content_nav.setStyleSheet("background-color: transparent; border-right: 1px solid #b3b5b9;")
-        content_nav.setMinimumWidth(250)
+        self.content_nav = QFrame()
+        self.content_nav.setStyleSheet("background-color: transparent ; border-right: 1px solid #b3b5b9;")
+        self.content_nav.setMinimumWidth(self.width_collapsed)
+        content_layout = QVBoxLayout(self.content_nav)
+        content_layout.setContentsMargins(0,0,0,0)
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content_layout.setSpacing(3)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setStyleSheet("border: none;")
 
-        # CONSTRUCCIÓN DE LA BARRA LATERAL (Conexión al change_view)
-        # ------------------------------------------------------------------
-        def _build_sidebar(self):
-            """Construye la barra lateral completa con logo, usuario y menús."""
-            self.sidebar = QFrame()
-            self.sidebar.setMinimumWidth(self.expanded_width)
-            self.sidebar.setMaximumWidth(self.expanded_width)
-            self.sidebar.setStyleSheet("background-color: #2F3D55;")
+        btn_home = QPushButton("Inicio 🏠")
+        btn_home.setObjectName("btn_home_1")
+        btn_home.setProperty("full_text", "Inicio 🏠")  # Guarda el texto completo para referencia
+        btn_home.setProperty("nav_index", 1)  # Guarda el índice de la página
+        btn_home.setProperty("is_parent", True)
+        btn_home.setFixedHeight(45)
+        btn_home.setFont(QFont("Roboto", 12))
+        btn_home.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_home.setStyleSheet(
+            """
+            QPushButton#btn_home_1 {
+                color: white; 
+                background-color: transparent;
+                border: none;
+                text-align: center;
+                padding-left: 10px;
+            }
+            QPushButton#btn_home_1:hover {
+                background-color:#151a21;
+            }
+             """
+        )
+        content_layout.addWidget(btn_home)
 
-            sidebar_main_layout = QVBoxLayout(self.sidebar)
-            sidebar_main_layout.setContentsMargins(0, 0, 0, 0)
-            sidebar_main_layout.setSpacing(0)
-
-            # --- TOP HEADER (BOTÓN COLLAPSE) ---
-            top_header = QFrame()
-            top_header.setStyleSheet("background-color: #243147;")
-            top_header_layout = QHBoxLayout(top_header)
-            top_header_layout.setContentsMargins(5, 5, 5, 5)
-
-            self.collapse_button = QPushButton()
-            self.collapse_button.setIcon(QIcon("assets/icons/menu_toggle.png"))
-            self.collapse_button.setIconSize(QSize(22, 22))
-            self.collapse_button.setStyleSheet(
-                "QPushButton {border: none; background-color: transparent;} QPushButton:hover {background-color: #3C4B64;}")
-            self.collapse_button.clicked.connect(self.toggle_sidebar)
-
-            top_header_layout.addWidget(self.collapse_button, alignment=Qt.AlignLeft)
-            top_header_layout.addStretch(1)
-            sidebar_main_layout.addWidget(top_header)
-
-            # --- LOGO ---
-            logo_frame = QFrame()
-            logo_frame.setStyleSheet("background-color: #243147;")
-            logo_layout = QVBoxLayout(logo_frame)
-            logo_layout.setContentsMargins(15, 15, 15, 15)
-
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            image_path = os.path.join(script_dir, "assets", "images", "apubyte.jpg")
-
-            logo_pixmap = QPixmap(image_path)
-            self.logo_label = QLabel()
-
-            if not logo_pixmap.isNull():
-                scaled_pixmap = logo_pixmap.scaled(
-                    200, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-                self.logo_label.setPixmap(scaled_pixmap)
-                self.logo_label.setAlignment(Qt.AlignCenter)
-                logo_layout.addWidget(self.logo_label)
-            else:
-                error_label = QLabel("Logo No Encontrado")
-                error_label.setAlignment(Qt.AlignCenter)
-                error_label.setStyleSheet("color: red; font-weight: bold;")
-                logo_layout.addWidget(error_label)
-
-            sidebar_main_layout.addWidget(logo_frame)
-
-            # --- Cabecera de Usuario ---
-            user_header = QWidget()
-            user_header.setStyleSheet("background-color: #243147; padding: 10px; color: white;")
-            user_layout = QVBoxLayout(user_header)
-
-            self.user_label = QLabel("ADMIN")
-            self.role_label = QLabel("EMPLEADO")
-
-            user_layout.addWidget(self.user_label, alignment=Qt.AlignCenter)
-            user_layout.addWidget(self.role_label, alignment=Qt.AlignCenter)
-            sidebar_main_layout.addWidget(user_header)
-
-            # --- Área de Desplazamiento para el Menú ---
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)
-            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-            scroll_area.setStyleSheet("border: none;")
-
-            menu_container = QWidget()
-            self.menu_scroll_layout = QVBoxLayout(menu_container)
-            self.menu_scroll_layout.setAlignment(Qt.AlignTop)
-            self.menu_scroll_layout.setContentsMargins(0, 0, 0, 0)
-            self.menu_scroll_layout.setSpacing(0)
-            scroll_area.setWidget(menu_container)
-
-            # --- Menú Items CONECTADOS A change_view ---
-            # NOTE: Pasamos self.change_view como click_handler a los botones simples
-            item_inicio = create_simple_menu_item("Inicio", "assets/icons/home.png", is_selected=True,
-                                                  click_handler=self.change_view)
-            self.menu_scroll_layout.addWidget(item_inicio)
-
-            # NOTE: La clase CollapseMenu ahora recibe 'parent' para acceder a change_view
-            almacen_submenu = ["Categoría", "Presentacion", "Marca", "Producto", "Perecederos"]
-            almacen_menu = CollapseMenu("Almacén", "assets/icons/almacen.png", almacen_submenu, parent=self)
-            self.menu_scroll_layout.addWidget(almacen_menu)
-
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Cotizaciones", "assets/icons/cotizaciones.png",
-                                        click_handler=self.change_view))
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Compras", "assets/icons/compras.png", click_handler=self.change_view))
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Caja", "assets/icons/caja.png", click_handler=self.change_view))
-
-            # BOTÓN DE VENTA CLAVE
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Ventas", "assets/icons/ventas.png", click_handler=self.change_view))
-
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Inventario", "assets/icons/inventario.png", click_handler=self.change_view))
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Usuarios", "assets/icons/usuario.png", click_handler=self.change_view))
-            self.menu_scroll_layout.addWidget(
-                create_simple_menu_item("Parametros", "assets/icons/parametros.png", click_handler=self.change_view))
-
-            sidebar_main_layout.addWidget(scroll_area)
-            sidebar_main_layout.addStretch(1)
 
 
 
@@ -223,10 +160,7 @@ class DashboardApp(BaseWindow):
 
 
         content_view = QFrame()
-        content_view.setStyleSheet("")
-
-        layout_content.addWidget(content_nav, 1)
-        layout_content.addWidget(content_view, 9)
+        content_view.setStyleSheet("background-color: transparent;")
 
 
 
@@ -234,11 +168,45 @@ class DashboardApp(BaseWindow):
 
 
 
+        layout_content.addWidget(self.content_nav,0)
+        layout_content.addWidget(content_view, 1)
+
+        self.main_h_layout.addWidget(sidebar, 0)
+        self.main_h_layout.addWidget(content, 1)
+
+        # >>> 2. AÑADIDO: CONFIGURACIÓN DEL ANIMADOR <<<
+        self.animation = QPropertyAnimation(self.content_nav, b"minimumWidth")
+        self.animation.setDuration(300)
+        self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.animation.finished.connect(self.update_state)
 
 
 
-        self.main_h_layout.addWidget(sidebar, 1)
-        self.main_h_layout.addWidget(content, 9)
+    def toggle_panel(self):
+        # 1. Determinar el inicio y el fin de la animación basado en el estado
+        if self.is_expanded:
+            # Colapsar
+            start_width = self.width_expanded
+            end_width = self.width_collapsed
+            self.toggle_btn.setText("☰")  # Cambia el icono a "Menú"
+        else:
+            # Expandir
+            start_width = self.width_collapsed
+            end_width = self.width_expanded
+            self.toggle_btn.setText("←")  # Cambia el icono a "Flecha"
+
+        self.animation.setStartValue(start_width)
+        self.animation.setEndValue(end_width)
+
+        self.animation.start()
+
+
+    def update_state(self):
+        # Invierte el estado SÓLO cuando la animación ha terminado
+        self.is_expanded = not self.is_expanded
+
+    def create_nav_button(self, param, param1, param2):
+        pass
 
 
 if __name__ == "__main__":
