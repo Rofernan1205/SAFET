@@ -31,9 +31,6 @@ class DashboardApp(BaseWindow):
         # 2. Variables de estado de collapse submenu
         self.is_expanded_sub = False
         self.height_collapsed = 0
-        self.height_expanded = 100
-
-
 
 
         # Layout Principal: Horizontal (Sidebar | Contenido)
@@ -178,11 +175,7 @@ class DashboardApp(BaseWindow):
         self.btn_sub_2.setStyleSheet("color:white; background-color : blue; padding: 5")
         submenu_layout.addWidget(self.btn_sub_1)
         submenu_layout.addWidget(self.btn_sub_2)
-
-        salida = self.submenu_container.layout()
-        print(salida.count())
-
-
+        content_layout.addWidget(self.submenu_container)
 
 
 
@@ -235,12 +228,48 @@ class DashboardApp(BaseWindow):
         self.is_expanded = not self.is_expanded
 
     def toggle_submenu(self):
+        target_layout = self.submenu_container .layout()
+        required_height = 0
+
+        if target_layout:
+            for i in range(target_layout.count()):
+                item = target_layout.itemAt(i)
+                widget = item.widget()
+                if widget:
+                    required_height += widget.sizeHint().height()
+
+            spacing = target_layout.spacing()
+            required_height += spacing * (target_layout.count() - 1)
+
         if self.is_expanded_sub:
-            start_height = self.height_expanded
+            start_height = required_height
             end_height = self.height_collapsed
+            self.btn_home.setStyleSheet(
+            """
+                QPushButton#btn_home_1 {
+                color: white; 
+                background-color: transparent;
+                border: none;
+                text-align: center;
+                padding-left: 10px;
+            }
+            QPushButton#btn_home_1:hover {
+                background-color:#151a21;
+                
+            }""")
+
         else:
             start_height = self.height_collapsed
-            end_height = self.height_expanded
+            end_height = required_height
+            self.btn_home.setStyleSheet(
+                """
+                QPushButton#btn_home_1 {
+                background-color: #151a21;
+                color: white; 
+                border: none;
+                text-align: center;
+                padding-left: 10px;
+                }""")
 
         self.animation_submenu.setStartValue(start_height)
         self.animation_submenu.setEndValue(end_height)
@@ -250,6 +279,7 @@ class DashboardApp(BaseWindow):
 
     def update_state_submenu(self):
         self.is_expanded_sub = not self.is_expanded_sub
+
 
 
 

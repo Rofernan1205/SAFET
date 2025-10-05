@@ -1,18 +1,7 @@
 # Color principal
 GRADIENT_GLOBAL = """
-    background: qlineargradient(
-        x1:0, y1:0, x2:1, y2:0,
-        stop:0.0  #000000,
-        stop:0.1  #1e1e1e,
-        stop:0.2  #363535,
-        stop:0.3  #4f4e4e,
-        stop:0.4  #6a6969,
-        stop:0.6  #6a6969,
-        stop:0.7  #4f4e4e,
-        stop:0.8  #363535,
-        stop:0.9  #1e1e1e,
-        stop:1.0  #000000
-    );
+    background-color : #151a21;
+    
 """
 # Estilos para los botones de la aplicacion
 BUTTON_STYLE ="""
