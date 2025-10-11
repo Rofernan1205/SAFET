@@ -2,11 +2,12 @@ import os
 import sys
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QGridLayout,
-    QLabel, QFrame, QTableWidget, QTableWidgetItem, QHBoxLayout,
-    QPushButton, QSizePolicy, QScrollArea
+    QApplication, QWidget, QVBoxLayout,
+    QLabel, QFrame, QHBoxLayout,
+    QPushButton, QStackedWidget
 )
-from views.utils_view.view_position import center_on_screen
+from views.utils_view.nav_button import NavButton, HomeView
+from store_view.category_view import CategoryView
 from views.base_window import  BaseWindow
 from views.utils_style.styles import GRADIENT_GLOBAL
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor
@@ -31,6 +32,9 @@ class DashboardApp(BaseWindow):
         # 2. Variables de estado de collapse submenu
         self.is_expanded_sub = False
         self.height_collapsed = 0
+
+        # 3. Estado de boton
+        self.active_button = None
 
 
         # Layout Principal: Horizontal (Sidebar | Contenido)
@@ -75,7 +79,7 @@ class DashboardApp(BaseWindow):
             background-color: transparent;
         }
         QPushButton#toggle_btn:hover {
-            background-color: #9198a1;
+            background-color: #333a45;
         }
         """)
         self.toggle_btn.clicked.connect(self.toggle_panel)
@@ -132,22 +136,32 @@ class DashboardApp(BaseWindow):
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         content_layout.setSpacing(0)
 
+        self.btn_home = NavButton("Inicio", 0, False, self.content_nav)
+        content_layout.addWidget(self.btn_home)
+        self.btn_home.clicked.connect(lambda: self.set_active_state(self.btn_home))
+
+        self.btn_store = NavButton("Almacén", 1, False, self.content_nav)
+        content_layout.addWidget(self.btn_store)
+        self.btn_store.clicked.connect(lambda: self.set_active_state(self.btn_store))
+
+
+
         # BOTON INICIO
-        self.btn_home = QPushButton("Home")
-        self.btn_home.setObjectName("btn_home")
-        self.btn_home.setFixedHeight(40)
-        self.btn_home.setFont(QFont("Roboto", 14))
-        self.btn_home.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_home.setStyleSheet(
+        self.btn_homes = QPushButton("Home")
+        self.btn_homes.setObjectName("btn_homes")
+        self.btn_homes.setFixedHeight(40)
+        self.btn_homes.setFont(QFont("Roboto", 14))
+        self.btn_homes.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_homes.setStyleSheet(
             """
-            QPushButton#btn_home {
+            QPushButton#btn_homes {
                 color: white; 
                 background-color: transparent;
                 border: none;
                 text-align: center;
                 padding-left: 10px;
             }
-            QPushButton#btn_home:hover {
+            QPushButton#btn_homes:hover {
                 background-color:#151a21;
             }
              """
@@ -156,19 +170,19 @@ class DashboardApp(BaseWindow):
 
 
         # BOTON ALMACÉN
-        self.btn_store = QPushButton("🏠 Almacén ")
-        self.btn_store.setObjectName("btn_store")
-        self.btn_store.setProperty("full_text", "🏠 Inicio")  # Guarda el texto completo para referencia
-        self.btn_store.setProperty("nav_index", -1)  # Guarda el índice de la página
-        self.btn_store.setProperty("is_parent", True)
-        self.btn_store.setFixedHeight(40)
-        self.btn_store.setFont(QFont("Roboto", 14))
-        self.btn_store.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_store.clicked.connect(self.toggle_submenu)
+        self.btn_stores = QPushButton("🏠 Almacén ")
+        self.btn_stores.setObjectName("btn_stores")
+        self.btn_stores.setProperty("full_text", "🏠 Inicio")  # Guarda el texto completo para referencia
+        self.btn_stores.setProperty("nav_index", -1)  # Guarda el índice de la página
+        self.btn_stores.setProperty("is_parent", True)
+        self.btn_stores.setFixedHeight(40)
+        self.btn_stores.setFont(QFont("Roboto", 14))
+        self.btn_stores.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_stores.clicked.connect(self.toggle_submenu)
 
         self.btn_store.setStyleSheet(
             """
-            QPushButton#btn_store {
+            QPushButton#btn_stores {
                 color: white; 
                 background-color: transparent;
                 border: none;
@@ -180,12 +194,12 @@ class DashboardApp(BaseWindow):
             }
              """
         )
-        content_layout.addWidget(self.btn_home)
-        content_layout.addWidget(self.btn_store)
+        content_layout.addWidget(self.btn_homes)
+        content_layout.addWidget(self.btn_stores)
 
 
         # AREA DE SUBMENU
-        self.submenu_container = QFrame()
+        self.submenu_container = QFrame(main_widget)
         # Inicialmente cerrado
         self.submenu_container.setMaximumHeight(self.height_collapsed)
         self.submenu_container.setStyleSheet("background-color: #3e5a75; border-left: 5px solid red;")
@@ -203,15 +217,25 @@ class DashboardApp(BaseWindow):
         submenu_layout.addWidget(self.btn_sub_2)
         content_layout.addWidget(self.submenu_container)
 
+        # VENTANAS A CAMBIAR
+        self.content_view = QFrame(main_widget)
+        self.content_view.setStyleSheet("background-color: transparent;")
+        content_layout = QVBoxLayout(self.content_view)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.stacked_widget = QStackedWidget()
+        # AÑADIR VISTAS
+        self.stacked_widget.addWidget(HomeView())  # Index 0
+        self.stacked_widget.addWidget(CategoryView())  # Index 1
+
+        content_layout.addWidget(self.stacked_widget)
+        self.set_active_state(self.btn_store)
 
 
-
-        content_view = QFrame()
-        content_view.setStyleSheet("background-color: transparent;")
 
 
         layout_content.addWidget(self.content_nav,0)
-        layout_content.addWidget(content_view, 1)
+        layout_content.addWidget(self.content_view, 1)
 
         self.main_h_layout.addWidget(sidebar, 0)
         self.main_h_layout.addWidget(content, 1)
@@ -305,6 +329,13 @@ class DashboardApp(BaseWindow):
         self.is_expanded_sub = not self.is_expanded_sub
 
 
+    def set_active_state(self, button_to_activate: NavButton):
+        if self.active_button and self.active_button is not button_to_activate:
+            self.active_button.deactivate()
+        self.stacked_widget.setCurrentIndex(button_to_activate.nav_index)
+        button_to_activate.activate()
+        self.active_button = button_to_activate
+        print(self.active_button)
 
 
 if __name__ == "__main__":
