@@ -38,15 +38,15 @@ class DashboardApp(BaseWindow):
         self.main_h_layout.setContentsMargins(0, 0, 0, 0)
         self.main_h_layout.setSpacing(0)
 
-        # Header
+        # CONTAINER HEADER
         sidebar = QFrame()
-        sidebar.setStyleSheet("background-color: transparent;")
+        sidebar.setStyleSheet("background-color: #01040a;")
         layout_sidebar = QHBoxLayout(sidebar)
         layout_sidebar.setContentsMargins(0,0,0,0)
         layout_sidebar.setSpacing(0)
         sidebar.setMaximumHeight(60)
 
-        # Logo
+        # LOGO
         box_logo = QFrame()
         box_logo.setStyleSheet("background-color: transparent;")
         box_logo.setMaximumWidth( 250)
@@ -63,6 +63,7 @@ class DashboardApp(BaseWindow):
                 }
                 """)
 
+        # BOTON DE COLAPSO DE MENU
         self.toggle_btn = QPushButton("☰")
         self.toggle_btn.setObjectName("toggle_btn")
         self.toggle_btn.setStyleSheet("""
@@ -87,7 +88,7 @@ class DashboardApp(BaseWindow):
 
 
 
-        # Titulo
+        # TITULO DE VENTANA
         box_title = QFrame()
         box_title.setStyleSheet("background-color: transparent;")
         word_title = QLabel("Panel de control")
@@ -98,7 +99,7 @@ class DashboardApp(BaseWindow):
         layout_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_title.addWidget(word_title)
 
-        # Profile
+        # PERFIL DE USUARIO
         box_profile = QFrame()
         box_profile.setStyleSheet("background-color: transparent;")
         word_profile = QLabel("Admin: Rodrigo .F")
@@ -109,56 +110,81 @@ class DashboardApp(BaseWindow):
         layout_profile.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_profile.addWidget(word_profile)
 
-
+        # AÑADIR AL CONTAINER DE HEADER
         layout_sidebar.addWidget(box_logo,2)
         layout_sidebar.addWidget(box_title,6)
         layout_sidebar.addWidget(box_profile, 2)
 
 
-        # Content
+        # CONTAINER CONTENIDO
         content = QFrame()
         content.setStyleSheet("background-color: transparent; border-top: 1px solid #b3b5b9;")
         layout_content = QHBoxLayout(content)
         layout_content.setContentsMargins(0,0,0,0)
         layout_content.setSpacing(0)
 
+        # BARRA DE NAV
         self.content_nav = QFrame()
-        self.content_nav.setStyleSheet("background-color: transparent ; border-right: 1px solid #b3b5b9;")
+        self.content_nav.setStyleSheet("background-color: #01040a ; border-right: 1px solid #b3b5b9;")
         self.content_nav.setMinimumWidth(self.width_collapsed)
         content_layout = QVBoxLayout(self.content_nav)
         content_layout.setContentsMargins(0,0,0,0)
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         content_layout.setSpacing(0)
 
-
-
-        self.btn_home = QPushButton("🏠 Inicio ")
-        self.btn_home.setObjectName("btn_home_1")
-        self.btn_home.setProperty("full_text", "🏠 Inicio")  # Guarda el texto completo para referencia
-        self.btn_home.setProperty("nav_index", -1)  # Guarda el índice de la página
-        self.btn_home.setProperty("is_parent", True)
+        # BOTON INICIO
+        self.btn_home = QPushButton("Home")
+        self.btn_home.setObjectName("btn_home")
         self.btn_home.setFixedHeight(40)
         self.btn_home.setFont(QFont("Roboto", 14))
         self.btn_home.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_home.clicked.connect(self.toggle_submenu)
-
         self.btn_home.setStyleSheet(
             """
-            QPushButton#btn_home_1 {
+            QPushButton#btn_home {
                 color: white; 
                 background-color: transparent;
                 border: none;
                 text-align: center;
                 padding-left: 10px;
             }
-            QPushButton#btn_home_1:hover {
+            QPushButton#btn_home:hover {
+                background-color:#151a21;
+            }
+             """
+        )
+
+
+
+        # BOTON ALMACÉN
+        self.btn_store = QPushButton("🏠 Almacén ")
+        self.btn_store.setObjectName("btn_store")
+        self.btn_store.setProperty("full_text", "🏠 Inicio")  # Guarda el texto completo para referencia
+        self.btn_store.setProperty("nav_index", -1)  # Guarda el índice de la página
+        self.btn_store.setProperty("is_parent", True)
+        self.btn_store.setFixedHeight(40)
+        self.btn_store.setFont(QFont("Roboto", 14))
+        self.btn_store.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_store.clicked.connect(self.toggle_submenu)
+
+        self.btn_store.setStyleSheet(
+            """
+            QPushButton#btn_store {
+                color: white; 
+                background-color: transparent;
+                border: none;
+                text-align: center;
+                padding-left: 10px;
+            }
+            QPushButton#btn_store:hover {
                 background-color:#151a21;
             }
              """
         )
         content_layout.addWidget(self.btn_home)
+        content_layout.addWidget(self.btn_store)
 
-        # Area de submenu
+
+        # AREA DE SUBMENU
         self.submenu_container = QFrame()
         # Inicialmente cerrado
         self.submenu_container.setMaximumHeight(self.height_collapsed)
@@ -205,9 +231,7 @@ class DashboardApp(BaseWindow):
 
 
 
-
     def toggle_panel(self):
-        # 1. Determinar el inicio y el fin de la animación basado en el estado
         if self.is_expanded:
             # Colapsar
             start_width = self.width_expanded
@@ -244,7 +268,7 @@ class DashboardApp(BaseWindow):
         if self.is_expanded_sub:
             start_height = required_height
             end_height = self.height_collapsed
-            self.btn_home.setStyleSheet(
+            self.btn_store.setStyleSheet(
             """
                 QPushButton#btn_home_1 {
                 color: white; 
@@ -261,7 +285,7 @@ class DashboardApp(BaseWindow):
         else:
             start_height = self.height_collapsed
             end_height = required_height
-            self.btn_home.setStyleSheet(
+            self.btn_store.setStyleSheet(
                 """
                 QPushButton#btn_home_1 {
                 background-color: #151a21;

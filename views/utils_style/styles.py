@@ -1,6 +1,6 @@
 # Color principal
 GRADIENT_GLOBAL = """
-    background-color : #151a21;
+    background-color : #0d1117; 
     
 """
 # Estilos para los botones de la aplicacion
